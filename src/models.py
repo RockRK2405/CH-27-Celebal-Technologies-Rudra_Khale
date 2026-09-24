@@ -22,33 +22,42 @@ from src.features import CATEGORICAL, as_model_frame
 SEED = 42
 
 
-def build_lgbm(n_estimators=1500, learning_rate=0.03):
+def build_lgbm(**overrides):
     import lightgbm as lgb
-    return lgb.LGBMRegressor(
-        objective="regression", n_estimators=n_estimators,
-        learning_rate=learning_rate, num_leaves=63, max_depth=-1,
+    params = dict(
+        objective="regression", n_estimators=1500,
+        learning_rate=0.03, num_leaves=63, max_depth=-1,
         min_child_samples=100, subsample=0.8, subsample_freq=1,
         colsample_bytree=0.8, reg_lambda=1.0, reg_alpha=0.0,
         random_state=SEED, n_jobs=-1, verbose=-1)
+    params.update(overrides)
+    return lgb.LGBMRegressor(**params)
 
 
-def build_xgb(n_estimators=1500, learning_rate=0.03):
+def build_xgb(**overrides):
     import xgboost as xgb
-    return xgb.XGBRegressor(
-        objective="reg:squarederror", n_estimators=n_estimators,
-        learning_rate=learning_rate, max_depth=8, min_child_weight=100,
+    params = dict(
+        objective="reg:squarederror", n_estimators=1500,
+        learning_rate=0.03, max_depth=8, min_child_weight=100,
         subsample=0.8, colsample_bytree=0.8, reg_lambda=1.0,
         tree_method="hist", enable_categorical=True,
         random_state=SEED, n_jobs=-1)
+    params.update(overrides)
+    return xgb.XGBRegressor(**params)
 
 
-def build_catboost(n_estimators=1500, learning_rate=0.03):
+def build_catboost(**overrides):
     from catboost import CatBoostRegressor
-    return CatBoostRegressor(
-        loss_function="RMSE", iterations=n_estimators,
-        learning_rate=learning_rate, depth=8, l2_leaf_reg=3.0,
+    # map lgbm/xgb-style keys to catboost where they differ
+    if "n_estimators" in overrides:
+        overrides["iterations"] = overrides.pop("n_estimators")
+    params = dict(
+        loss_function="RMSE", iterations=1500,
+        learning_rate=0.03, depth=8, l2_leaf_reg=3.0,
         random_seed=SEED, thread_count=-1, verbose=False,
         allow_writing_files=False)
+    params.update(overrides)
+    return CatBoostRegressor(**params)
 
 
 BUILDERS = {"lgbm": build_lgbm, "xgb": build_xgb, "catboost": build_catboost}
