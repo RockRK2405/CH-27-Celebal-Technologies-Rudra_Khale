@@ -1,0 +1,40 @@
+{
+  "train_shape": [
+    970379,
+    9
+  ],
+  "test_shape": [
+    46830,
+    8
+  ],
+  "hub_shape": [
+    1115,
+    10
+  ],
+  "ss_shape": [
+    46830,
+    2
+  ],
+  "train_dates": [
+    "2013-01-01",
+    "2015-06-19"
+  ],
+  "test_dates": [
+    "2015-06-20",
+    "2015-07-31"
+  ],
+  "n_hubs_train": 1115,
+  "n_hubs_test": 1115,
+  "n_hubs_meta": 1115,
+  "test_hubs_subset_of_train": true,
+  "test_after_train": true,
+  "gap_days": 1,
+  "test_horizon_days": 42,
+  "appsessions_in_test": false,
+  "pct_zero_orders": 0.17140004060269234,
+  "pct_closed_train": 0.1713443922426186,
+  "pct_closed_test": 0.1398248985692932,
+  "ov_max": 38722,
+  "ov_mean": 5762.766017195343,
+  "corr_appsessions_ov_open": 0.8252360925491388
+}

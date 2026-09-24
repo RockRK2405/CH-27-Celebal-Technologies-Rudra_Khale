@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Models can be large — keep out of git unless small; track via releases if needed
+models/*.txt
+models/*.cbm
+models/*.bin
+models/*.pkl
+models/*.joblib
+
+# Keep raw data OUT of the working branch (it lives on main); avoids duplication.
+# Comment these out if you prefer data versioned on this branch too.
+# data/*.csv
+
+# OS
+.DS_Store
