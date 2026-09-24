@@ -32,23 +32,37 @@ ENSEMBLE = [("lgbm", "log", 1.0)]
 BLEND_SPACE = "pred"        # "pred" or "log"
 
 
-def _predict_test(df, test, hub, name, mode):
+def _predict_test(df, test, hub, name, mode, params=None):
     cutoff = df["Date"].max()
     Xtr, ytr = make_supervised(df, hub, cutoff)
     Xte = build_features(df, test, hub, cutoff)
-    r = fit_predict(name, Xtr, ytr, Xte, mode, {"n_estimators": 1500})
+    params = params or {"n_estimators": 1500}
+    r = fit_predict(name, Xtr, ytr, Xte, mode, params)
     return np.clip(r["pred"], 0, None)
+
+
+def _normalize(ens):
+    """Accept either tuples (model, mode, weight) or dicts with optional params."""
+    out = []
+    for e in ens:
+        if isinstance(e, dict):
+            out.append((e["model"], e.get("mode", "log"),
+                        float(e.get("weight", 1.0)), e.get("params")))
+        else:
+            name, mode, w = e
+            out.append((name, mode, float(w), None))
+    return out
 
 
 def build_submission(config=None, out_name="submission_v1.csv", val_rmsle=None):
     df = load_train(); test = load_test(); hub = load_hub_metadata()
     ss = load_sample_submission()
     config = config or {"ensemble": ENSEMBLE, "blend_space": BLEND_SPACE}
-    ens = config["ensemble"]; space = config.get("blend_space", "pred")
+    ens = _normalize(config["ensemble"]); space = config.get("blend_space", "pred")
 
     preds, wsum = None, 0.0
-    for name, mode, w in ens:
-        p = _predict_test(df, test, hub, name, mode)
+    for name, mode, w, params in ens:
+        p = _predict_test(df, test, hub, name, mode, params)
         pv = np.log1p(p) if space == "log" else p
         preds = pv * w if preds is None else preds + pv * w
         wsum += w
@@ -96,6 +110,5 @@ def build_submission(config=None, out_name="submission_v1.csv", val_rmsle=None):
 if __name__ == "__main__":
     cfg_path = ROOT / "outputs" / "ensemble_config.json"
     cfg = json.loads(cfg_path.read_text()) if cfg_path.exists() else None
-    if cfg and "ensemble" in cfg:
-        cfg["ensemble"] = [tuple(x) for x in cfg["ensemble"]]
-    build_submission(cfg)
+    vr = cfg.get("val_rmsle") if cfg else None
+    build_submission(cfg, val_rmsle=vr)
