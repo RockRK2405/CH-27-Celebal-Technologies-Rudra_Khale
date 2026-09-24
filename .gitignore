@@ -16,5 +16,9 @@ models/*.joblib
 # Comment these out if you prefer data versioned on this branch too.
 # data/*.csv
 
+# Heavy intermediate artifacts (rebuildable from src)
+outputs/cache/
+*.log
+
 # OS
 .DS_Store
