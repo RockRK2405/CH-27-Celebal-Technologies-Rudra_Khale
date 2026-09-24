@@ -25,8 +25,15 @@ from src.features import as_model_frame, CATEGORICAL
 from src.train import get_fold_matrices
 
 OUT = ROOT / "outputs" / "hyperparameter_results"; OUT.mkdir(parents=True, exist_ok=True)
-N_TRIALS = 30
+N_TRIALS = 12
 SEED = 42
+
+
+def _save_best(study, model_name):
+    """Persist best params after every trial so an early stop loses nothing."""
+    (OUT / "best_params.json").write_text(json.dumps(
+        {"model": model_name, "best_value_meanfold_rmsle": study.best_value,
+         "params": study.best_params}, indent=2))
 
 
 def _load_folds():
@@ -74,7 +81,8 @@ def main(model_name=None):
     obj = {"lgbm": objective_lgbm}.get(model_name, objective_lgbm)
     study = optuna.create_study(direction="minimize",
                                 sampler=optuna.samplers.TPESampler(seed=SEED))
-    study.optimize(lambda t: obj(t, data), n_trials=N_TRIALS, show_progress_bar=False)
+    study.optimize(lambda t: obj(t, data), n_trials=N_TRIALS, show_progress_bar=False,
+                   callbacks=[lambda st, tr: _save_best(st, model_name)])
 
     best = study.best_params
     (OUT / "best_params.json").write_text(json.dumps(
