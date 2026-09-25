@@ -37,11 +37,10 @@ def _save_best(study, model_name):
 
 
 def _load_folds():
-    from src.validation import window_fold
     df = load_train(); hub = load_hub_metadata()
-    # optimise for the TEST SEASON: summer fold (LB proxy) + recent holdout
-    folds = [window_fold(df, "2014-06-20", "2014-07-31", "summer2014"),
-             rolling_splits(df, n_folds=3)[-1]]
+    # Tune on the SPRING folds ONLY, so the summer-2014 fold stays an UNBIASED
+    # honest proxy for the July test (never seen by the tuner).
+    folds = rolling_splits(df, n_folds=3)[:2]      # fold1, fold2 (spring 2015)
     data = []
     for f in folds:
         Xtr, ytr, Xval, yv, iso = get_fold_matrices(df, hub, f)
