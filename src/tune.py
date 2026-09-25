@@ -25,7 +25,7 @@ from src.features import as_model_frame, CATEGORICAL
 from src.train import get_fold_matrices
 
 OUT = ROOT / "outputs" / "hyperparameter_results"; OUT.mkdir(parents=True, exist_ok=True)
-N_TRIALS = 12
+N_TRIALS = 25
 SEED = 42
 
 
@@ -37,8 +37,11 @@ def _save_best(study, model_name):
 
 
 def _load_folds():
+    from src.validation import window_fold
     df = load_train(); hub = load_hub_metadata()
-    folds = rolling_splits(df, n_folds=3)[-2:]      # fold2, fold3
+    # optimise for the TEST SEASON: summer fold (LB proxy) + recent holdout
+    folds = [window_fold(df, "2014-06-20", "2014-07-31", "summer2014"),
+             rolling_splits(df, n_folds=3)[-1]]
     data = []
     for f in folds:
         Xtr, ytr, Xval, yv, iso = get_fold_matrices(df, hub, f)
