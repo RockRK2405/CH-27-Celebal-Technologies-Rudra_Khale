@@ -38,6 +38,14 @@ TARGET = "OrderVolume"
 # Target-lag horizons: all >= 42 (the block length) so every block day is safe.
 SAFE_LAGS = [42, 49, 56, 63, 364, 371]
 
+# Near-term lags for the HORIZON-AWARE model. These are computed ONLY from
+# history <= cutoff, so for a target at date t=cutoff+h, lag_k is naturally
+# available iff k >= h (t-k <= cutoff) and NaN otherwise. We deliberately DO NOT
+# fill these NaNs — "unavailable" is a real signal, and LightGBM handles NaN. A
+# `horizon` feature lets the model learn when each near lag is trustworthy. This
+# is the leakage-safe, drift-free alternative to recursive forecasting.
+NEAR_LAGS = [1, 2, 3, 4, 5, 6, 7, 14, 21, 28, 35]
+
 MONTH_ABBR = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
               7: "Jul", 8: "Aug", 9: "Sept", 10: "Oct", 11: "Nov", 12: "Dec"}
 
@@ -229,6 +237,21 @@ def build_features(history: pd.DataFrame, targets: pd.DataFrame,
     feats["promo_x_weekend"] = feats["PromoActive"] * feats["is_weekend"]
     feats["promo_x_dow"] = feats["PromoActive"] * (feats["dow"] + 1)
     # NOTE: sc_run_length / sc_x_weekend were tried (EXP-2) and REJECTED (see above).
+
+    # ---- HORIZON-AWARE near-term lags (leakage-safe, NOT filled) ----
+    feats["horizon"] = (targets["Date"] - cutoff).dt.days.to_numpy()
+    hist_small = history[["HubID", "Date", TARGET]]
+    near = {}
+    for k in NEAR_LAGS:
+        s = hist_small.copy(); s["Date"] = s["Date"] + pd.Timedelta(days=k)
+        s = s.rename(columns={TARGET: f"nlag_{k}"})
+        m = targets[["HubID", "Date"]].merge(s, on=["HubID", "Date"], how="left")
+        col = m[f"nlag_{k}"].to_numpy()          # NaN where t-k > cutoff (unavailable)
+        feats[f"nlag_{k}"] = col
+        near[k] = col
+    # recent 7-day mean from available near lags (NaN only if none available)
+    week = np.vstack([near[k] for k in (1, 2, 3, 4, 5, 6, 7)]).T
+    feats["nlag_roll7"] = np.nanmean(week, axis=1)
 
     return feats
 

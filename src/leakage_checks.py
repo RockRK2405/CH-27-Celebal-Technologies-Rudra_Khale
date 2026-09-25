@@ -25,7 +25,7 @@ import pandas as pd
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from src.data import load_train, load_hub_metadata, TEST_START
-from src.features import build_features, SAFE_LAGS
+from src.features import build_features, SAFE_LAGS, NEAR_LAGS
 from src.validation import holdout_split
 
 HORIZON = 42
@@ -68,6 +68,20 @@ def _lag_horizon_test() -> tuple[bool, str]:
     return True, f"all target lags >= horizon {HORIZON}: {SAFE_LAGS}"
 
 
+def _near_lag_mask_test(df, hub, cutoff, targets) -> tuple[bool, str]:
+    """Near-term lag nlag_k MUST be NaN whenever horizon > k (i.e. t-k > cutoff,
+    so the value is not yet observed). This proves the horizon-aware near lags
+    never peek past the cutoff."""
+    feats = build_features(df[df["Date"] <= cutoff], targets, hub, cutoff)
+    horizon = feats["horizon"].to_numpy()
+    for k in NEAR_LAGS:
+        col = feats[f"nlag_{k}"].to_numpy()
+        unavailable = horizon > k
+        if not np.isnan(col[unavailable]).all():
+            return False, f"nlag_{k} has values where horizon>{k} (would peek past cutoff)"
+    return True, f"near lags {NEAR_LAGS} are NaN exactly when unavailable (horizon>k)"
+
+
 def _lag_value_test(df, hub, cutoff, targets) -> tuple[bool, str]:
     """lag_k of a target row must equal OrderVolume at (date-k) from history."""
     history = df[df["Date"] <= cutoff]
@@ -95,6 +109,7 @@ def run_all(verbose=True) -> bool:
         ("column source", _column_source_test(feats)),
         ("lag horizon", _lag_horizon_test()),
         ("lag values", _lag_value_test(df, hub, cutoff, targets)),
+        ("near-lag masking", _near_lag_mask_test(df, hub, cutoff, targets)),
         ("perturbation (future target)", _perturbation_test(df, hub, cutoff, targets, rng)),
     ]
     ok = all(p for _, (p, _) in checks)
