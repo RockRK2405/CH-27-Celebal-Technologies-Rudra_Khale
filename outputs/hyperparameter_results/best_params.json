@@ -1,6 +1,6 @@
 {
   "model": "lgbm",
-  "best_value_meanfold_rmsle": 0.05463161485235775,
+  "best_value_meanfold_rmsle": 0.05682779109981271,
   "params": {
     "n_estimators": 2000,
     "learning_rate": 0.06349691657909104,
