@@ -105,3 +105,18 @@ The top of the LB (~0.040) vs ours (~0.072) is the classic signature of using
 *recent* demand (lag-1/7/14), which our direct 42-day model excludes by design.
 Recursive/iterative forecasting to unlock near-term lags is the highest-value
 remaining experiment; validate on the summer fold with a fresh leakage audit.
+
+### EXP-5 — recursive near-term lags ❌ REJECTED
+| Model | summer fold | main holdout |
+|---|---|---|
+| direct (submission_v1) | 0.0717 | 0.0642 |
+| recursive (lag-1/7/14/…) | **0.1703** | **0.1142** |
+
+Recursion over-weights lag_1; propagated over 42 days the forecast flattens to the
+cutoff-day level and loses weekly seasonality, so error compounds. Caught on the
+summer fold — would have ~doubled the LB error. **Reverted; submission_v1 kept.**
+
+Revised view: near-term lags via *recursion* are not the lever here. Remaining
+principled options: (a) per-horizon direct models (near lags without recursion
+drift), (b) more granular but shrinkage-regularised hub×weekday×promo means,
+(c) heavier tuning. All to be judged on the summer fold before any submission.
