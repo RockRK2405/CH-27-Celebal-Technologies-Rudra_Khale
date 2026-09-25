@@ -91,6 +91,20 @@ def holdout_split(df: pd.DataFrame, horizon: int = HORIZON) -> Fold:
     return Fold("holdout_last42", train_idx, val_idx, train_end, val_start, val_end)
 
 
+def window_fold(df: pd.DataFrame, val_start, val_end, name: str) -> Fold:
+    """A fold whose validation is an explicit calendar window (train = strictly
+    before it). Used for the summer 2014 fold that mirrors the Kaggle test season.
+    """
+    val_start = pd.Timestamp(val_start); val_end = pd.Timestamp(val_end)
+    dates = _sorted_unique_dates(df)
+    train_mask = df[DATE] < val_start
+    val_mask = (df[DATE] >= val_start) & (df[DATE] <= val_end)
+    train_idx = np.where(train_mask.to_numpy())[0]
+    val_idx = np.where(val_mask.to_numpy())[0]
+    train_end = pd.Timestamp(dates[dates < np.datetime64(val_start)].max())
+    return Fold(name, train_idx, val_idx, train_end, val_start, val_end)
+
+
 def rolling_splits(df: pd.DataFrame, horizon: int = HORIZON,
                    n_folds: int = 3, step: int | None = None) -> list[Fold]:
     """Expanding-train, fixed-`horizon` validation folds.

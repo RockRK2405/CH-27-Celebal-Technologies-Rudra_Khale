@@ -147,6 +147,12 @@ def _history_aggregates(history: pd.DataFrame, targets: pd.DataFrame,
     keys_p = list(zip(targets["HubID"], targets["PromoActive"]))
     out["hub_promo_mean"] = pd.Series(hp.reindex(keys_p).to_numpy(), index=targets.index)
 
+    # ---- per (hub, school-closure) — the segment that dominates the summer test ----
+    hsc = open_h.groupby(["HubID", "SchoolClosureFlag"])[TARGET].mean()
+    keys_sc = list(zip(targets["HubID"], targets["SchoolClosureFlag"]))
+    out["hub_sc_mean"] = pd.Series(hsc.reindex(keys_sc).to_numpy(), index=targets.index)
+    out["hub_sc_ratio"] = out["hub_sc_mean"] / (targets["HubID"].map(hub_stats["hub_mean"]))
+
     # ---- recent level & trend (windows ending at cutoff) ----
     for win in (28, 91, 182):
         recent = open_h[open_h["Date"] > (cutoff - pd.Timedelta(days=win))]
@@ -189,6 +195,22 @@ def _history_aggregates(history: pd.DataFrame, targets: pd.DataFrame,
 # ---------------------------------------------------------------------------
 # public API
 # ---------------------------------------------------------------------------
+def _sc_runlength(history: pd.DataFrame, targets: pd.DataFrame) -> np.ndarray:
+    """Consecutive school-closure days ending at each target date (0 if the day
+    is not a closure). Uses ONLY SchoolClosureFlag (a known calendar signal from
+    history + the test file), never OrderVolume — so it is leakage-safe."""
+    cols = ["HubID", "Date", "SchoolClosureFlag"]
+    flags = pd.concat([history[cols], targets[cols]], ignore_index=True)
+    flags = flags.drop_duplicates(["HubID", "Date"]).sort_values(["HubID", "Date"])
+    changed = flags["SchoolClosureFlag"] != flags.groupby("HubID")["SchoolClosureFlag"].shift()
+    seg = changed.cumsum()
+    run = flags.groupby(seg).cumcount() + 1
+    flags["run"] = (run * flags["SchoolClosureFlag"]).astype("int32")
+    lut = flags.set_index(["HubID", "Date"])["run"]
+    keys = list(zip(targets["HubID"], targets["Date"]))
+    return lut.reindex(keys).fillna(0).to_numpy()
+
+
 def build_features(history: pd.DataFrame, targets: pd.DataFrame,
                    hub: pd.DataFrame, cutoff: pd.Timestamp) -> pd.DataFrame:
     """Assemble all leakage-safe features for `targets`, using only `history`
@@ -210,6 +232,10 @@ def build_features(history: pd.DataFrame, targets: pd.DataFrame,
     # a couple of justified interactions
     feats["promo_x_weekend"] = feats["PromoActive"] * feats["is_weekend"]
     feats["promo_x_dow"] = feats["PromoActive"] * (feats["dow"] + 1)
+
+    # school-closure dynamics (summer test window is 28.5% closure vs 7.5% in spring)
+    feats["sc_run_length"] = _sc_runlength(history, targets)
+    feats["sc_x_weekend"] = feats["SchoolClosureFlag"] * feats["is_weekend"]
 
     return feats
 
