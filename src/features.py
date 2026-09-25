@@ -44,7 +44,7 @@ SAFE_LAGS = [42, 49, 56, 63, 364, 371]
 # fill these NaNs — "unavailable" is a real signal, and LightGBM handles NaN. A
 # `horizon` feature lets the model learn when each near lag is trustworthy. This
 # is the leakage-safe, drift-free alternative to recursive forecasting.
-NEAR_LAGS = [1, 2, 3, 4, 5, 6, 7, 14, 21, 28, 35]
+NEAR_LAGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 21, 28, 35]
 
 MONTH_ABBR = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
               7: "Jul", 8: "Aug", 9: "Sept", 10: "Oct", 11: "Nov", 12: "Dec"}
@@ -157,6 +157,11 @@ def _history_aggregates(history: pd.DataFrame, targets: pd.DataFrame,
     # NOTE: per-(hub, school-closure) means were tried (EXP-2) and REJECTED — they
     # hurt the summer fold by +0.012 (see outputs/leaderboard_analysis.md).
 
+    # ---- per (hub, weekday, promo) — finer level; more support than the SC split ----
+    hwp = open_h.groupby(["HubID", "_dow", "PromoActive"])[TARGET].mean()
+    keys_wp = list(zip(targets["HubID"], tgt_dow, targets["PromoActive"]))
+    out["hub_wd_promo_mean"] = pd.Series(hwp.reindex(keys_wp).to_numpy(), index=targets.index)
+
     # ---- recent level & trend (windows ending at cutoff) ----
     for win in (28, 91, 182):
         recent = open_h[open_h["Date"] > (cutoff - pd.Timedelta(days=win))]
@@ -249,9 +254,25 @@ def build_features(history: pd.DataFrame, targets: pd.DataFrame,
         col = m[f"nlag_{k}"].to_numpy()          # NaN where t-k > cutoff (unavailable)
         feats[f"nlag_{k}"] = col
         near[k] = col
-    # recent 7-day mean from available near lags (NaN only if none available)
+    # recent-window stats from available near lags (NaN only if none available)
     week = np.vstack([near[k] for k in (1, 2, 3, 4, 5, 6, 7)]).T
+    fort = np.vstack([near[k] for k in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)]).T
     feats["nlag_roll7"] = np.nanmean(week, axis=1)
+    feats["nlag_roll14"] = np.nanmean(fort, axis=1)
+    feats["nlag_std7"] = np.nanstd(week, axis=1)
+    feats["nlag_min7"] = np.nanmin(week, axis=1)
+    feats["nlag_max7"] = np.nanmax(week, axis=1)
+
+    # same-weekday-last-year seasonal mean (all >= 42 days => always available;
+    # July repeats last July, which is exactly the test season)
+    hist_small = history[["HubID", "Date", TARGET]]
+    seas = []
+    for k in (357, 364, 371):
+        s = hist_small.copy(); s["Date"] = s["Date"] + pd.Timedelta(days=k)
+        s = s.rename(columns={TARGET: f"_sl{k}"})
+        mm = targets[["HubID", "Date"]].merge(s, on=["HubID", "Date"], how="left")
+        seas.append(mm[f"_sl{k}"].to_numpy())
+    feats["seasonal_year_mean"] = np.nanmean(np.vstack(seas).T, axis=1)
 
     return feats
 
