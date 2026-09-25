@@ -78,3 +78,30 @@ identical, so they are not contributors.
 Do **EXP-1 first** (free, makes CV honest for the test season), then **EXP-2**
 (targets the dominant weak segment), then **EXP-3**. EXP-4/5 only if a gap
 remains. One change at a time, each judged on the summer fold.
+
+---
+
+## Experiment results (measured)
+
+### EXP-1 — summer fold ✅ CONFIRMED
+Summer-2014 fold (val 2014-06-20…07-31) RMSLE = **0.07166**, essentially equal to
+the Kaggle public LB **0.07181**. The season shift fully explains the CV→LB gap,
+and this fold is now a faithful *offline* LB proxy (iterate without spending
+Kaggle submissions).
+
+### EXP-2 — school-closure features ❌ REJECTED
+| Fold | without SC | with SC | delta |
+|---|---|---|---|
+| summer2014 | 0.07166 | 0.08358 | **+0.0119 (worse)** |
+| main holdout | 0.06422 | 0.06473 | +0.0005 (worse) |
+| SC segment (summer) | 0.0847 | 0.1172 | worse |
+
+The per-hub school-closure means are estimated on sparse history and add noise the
+model overfits to — they hurt exactly the segment they targeted. **Reverted.**
+submission_v1 (no SC features) remains the validated best.
+
+### Next lever — EXP-5 (recursive near-term lags)
+The top of the LB (~0.040) vs ours (~0.072) is the classic signature of using
+*recent* demand (lag-1/7/14), which our direct 42-day model excludes by design.
+Recursive/iterative forecasting to unlock near-term lags is the highest-value
+remaining experiment; validate on the summer fold with a fresh leakage audit.

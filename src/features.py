@@ -146,12 +146,8 @@ def _history_aggregates(history: pd.DataFrame, targets: pd.DataFrame,
     hp = open_h.groupby(["HubID", "PromoActive"])[TARGET].mean()
     keys_p = list(zip(targets["HubID"], targets["PromoActive"]))
     out["hub_promo_mean"] = pd.Series(hp.reindex(keys_p).to_numpy(), index=targets.index)
-
-    # ---- per (hub, school-closure) — the segment that dominates the summer test ----
-    hsc = open_h.groupby(["HubID", "SchoolClosureFlag"])[TARGET].mean()
-    keys_sc = list(zip(targets["HubID"], targets["SchoolClosureFlag"]))
-    out["hub_sc_mean"] = pd.Series(hsc.reindex(keys_sc).to_numpy(), index=targets.index)
-    out["hub_sc_ratio"] = out["hub_sc_mean"] / (targets["HubID"].map(hub_stats["hub_mean"]))
+    # NOTE: per-(hub, school-closure) means were tried (EXP-2) and REJECTED — they
+    # hurt the summer fold by +0.012 (see outputs/leaderboard_analysis.md).
 
     # ---- recent level & trend (windows ending at cutoff) ----
     for win in (28, 91, 182):
@@ -232,10 +228,7 @@ def build_features(history: pd.DataFrame, targets: pd.DataFrame,
     # a couple of justified interactions
     feats["promo_x_weekend"] = feats["PromoActive"] * feats["is_weekend"]
     feats["promo_x_dow"] = feats["PromoActive"] * (feats["dow"] + 1)
-
-    # school-closure dynamics (summer test window is 28.5% closure vs 7.5% in spring)
-    feats["sc_run_length"] = _sc_runlength(history, targets)
-    feats["sc_x_weekend"] = feats["SchoolClosureFlag"] * feats["is_weekend"]
+    # NOTE: sc_run_length / sc_x_weekend were tried (EXP-2) and REJECTED (see above).
 
     return feats
 
