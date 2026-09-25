@@ -1,7 +1,7 @@
 # Hyperparameter tuning — lgbm
 
 * trials: 25
-* best mean-fold RMSLE: **0.05463**
+* best mean-fold RMSLE: **0.05683**
 * best params:
 ```json
 {
